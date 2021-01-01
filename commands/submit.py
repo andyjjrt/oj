@@ -1,0 +1,58 @@
+import json, time, os
+
+from consants import STAT_PATH, API
+from util.fetch import fetch
+from util.status import status
+
+def submit(assign_number, filename):
+    with open(os.path.join(STAT_PATH, "assign_mapping.json"), "rt") as json_in:
+        assign_to_config = json.load(json_in)
+    if assign_number not in assign_to_config:
+        print("Invalid Assign Number!")
+        print("Available names are:")
+        for hwmap in assign_to_config:
+            print("- " + hwmap + " [" + assign_to_config[hwmap]['contest_name'] + "]")
+        print("If you want to update latest homework assignment, type: [oj update] to update.")
+        return
+    contest_id, problem_id = (
+        assign_to_config[assign_number]["contest_id"],
+        assign_to_config[assign_number]["problem_id"],
+    )
+    try:
+        with open(filename, "r") as fin:
+            code = fin.read()
+    except IOError:
+        print('File "' + filename + '" does not exist!')
+        return
+    payload = {
+        "problem_id": problem_id,
+        "language": "C",
+        "code": code,
+        "contest_id": contest_id,
+    }
+
+    try:
+        submission_response = json.loads(
+            fetch("post", "submission", payload).text
+        )
+    except ValueError:
+        print("No response is received! Please contact class TA!")
+
+    response_data = submission_response["data"]
+    if response_data == "The contest have ended":
+        print("The contest has ended.")
+        return
+    try:
+        submission_id = response_data["submission_id"]
+    except TypeError:
+        if submission_response["error"] == "invalid-code":
+            print("You can't submit empty file.'")
+            return
+        print("Unknown error occuried!")
+        return
+    print(
+        "Submit successfully!\n"
+        "Getting submission status..."
+    )
+    time.sleep(1.0)
+    status(submission_id)
